@@ -11,6 +11,21 @@
 - 双击 `停止书库.cmd` 关闭服务，文件仍然保留。重启电脑后需要再次启动书库。
 - 当前仅本机可访问，不需要公网服务器或域名。电脑关机后无法访问。
 
+## 安卓平板访问（同一 Wi-Fi）
+
+1. 在电脑上把 `.local\config.yaml` 中的 `server.listen` 改为 `0.0.0.0`。
+2. 在 Windows 防火墙中允许专用网络的 TCP `8090` 端口。
+3. 双击 `启动书库.cmd`，在电脑上运行 `ipconfig`，找到 Wi-Fi 网卡的 IPv4 地址。
+4. 平板与电脑连接同一个 Wi-Fi，在浏览器打开 `http://电脑IPv4地址:8090`，例如 `http://192.168.1.23:8090`。
+
+平板上传、移动、重命名和删除的内容会直接保存到电脑的 `BeigerLibrary` 资料目录。电脑关机或书库未启动时，平板无法访问。不要把端口转发到互联网；只在可信的家庭/个人局域网使用。
+
+如果防火墙提示“拒绝访问”，请用“管理员身份”打开 PowerShell，执行：
+
+```powershell
+New-NetFirewallRule -DisplayName "BeigerLibrary 8090 LAN" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8090 -Profile Private
+```
+
 ## 数据与备份
 
 默认资料目录为 Windows「文档」下的 `BeigerLibrary`，不在 Git 仓库内。真实路径可在 `.local/instance.json` 中查看。

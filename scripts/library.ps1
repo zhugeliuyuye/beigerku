@@ -133,7 +133,7 @@ function Start-Library {
     $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $instance.port -ErrorAction SilentlyContinue)
     if ($listeners.Count -gt 0) { throw ('Port ' + $instance.port + ' is already in use. No process was stopped.') }
     $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
-    if ($config.server.listen -ne '127.0.0.1') { throw 'This personal deployment must listen on 127.0.0.1.' }
+    if ($config.server.listen -notin @('127.0.0.1', '0.0.0.0')) { throw 'config.yaml listen must be 127.0.0.1 or 0.0.0.0.' }
     if ($config.server.port -ne $instance.port) { throw 'config.yaml and instance.json ports must match.' }
     if ($config.server.sources.Count -ne 1 -or $config.server.sources[0].path -ne $instance.dataPath) {
         throw 'The configured source no longer matches the backed-up library directory.'
