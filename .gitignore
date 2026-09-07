@@ -6,4 +6,7 @@
 .env
 library-data/
 backups/
-
+node_modules/
+.wrangler/
+cloudflare/worker/.dev.vars
+cloudflare/worker/worker-configuration.d.ts

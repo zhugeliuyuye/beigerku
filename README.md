@@ -66,3 +66,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\library.ps1 -A
 - Windows 部署：[官方稳定版说明](https://filebrowserquantum.com/en/docs/getting-started/windows-v1.5.x/)
 
 本仓库只存放个人部署配置、启动脚本和说明。GitHub Pages 不能运行此后端，也不是资料存储服务。
+
+## Cloudflare 云端版
+
+仓库中还提供了一套独立的 Cloudflare 版本，目录在 `cloudflare/`：
+
+- Pages 托管网页
+- Workers 提供登录和文件 API
+- R2 保存云端资料
+
+这套版本与本机 FileBrowser 的资料不会自动同步。部署步骤见 [`cloudflare/README.md`](cloudflare/README.md)。

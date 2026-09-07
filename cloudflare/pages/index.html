@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>贝格书库 · Cloudflare 版</title>
+    <script src="./config.js"></script>
+    <style>
+      :root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+      body { margin: 0; background: #f4f6f8; color: #172033; }
+      main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+      header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+      h1 { margin: 0 0 8px; font-size: 28px; }
+      h2 { margin: 0 0 14px; font-size: 18px; }
+      .panel { background: #fff; border: 1px solid #dde3ea; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+      .login { max-width: 420px; margin: 12vh auto 0; }
+      .muted { color: #667085; font-size: 14px; }
+      .error { color: #b42318; min-height: 22px; margin-top: 10px; }
+      .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+      .grow { flex: 1 1 240px; }
+      input, select, button { font: inherit; }
+      input, select { padding: 10px 12px; border: 1px solid #cfd7df; border-radius: 6px; box-sizing: border-box; }
+      input[type="password"] { width: 100%; }
+      button { padding: 10px 14px; border: 0; border-radius: 6px; background: #24765e; color: #fff; cursor: pointer; }
+      button.secondary { background: #e8edf2; color: #172033; }
+      button.danger { background: #b42318; }
+      button:disabled { opacity: .55; cursor: wait; }
+      .file-list { list-style: none; padding: 0; margin: 0; }
+      .file-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #edf0f2; }
+      .file-item:last-child { border-bottom: 0; }
+      .file-name { min-width: 0; overflow-wrap: anywhere; }
+      .file-meta { color: #667085; font-size: 13px; margin-top: 3px; }
+      .empty { color: #667085; padding: 12px 0; }
+      .hidden { display: none !important; }
+      @media (max-width: 640px) {
+        main { padding: 16px; }
+        header { display: block; }
+        header button { margin-top: 12px; }
+        .file-item { align-items: flex-start; flex-direction: column; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section id="loginPanel" class="panel login">
+        <h1>贝格书库</h1>
+        <p class="muted">Cloudflare 版个人资料库</p>
+        <form id="loginForm">
+          <label for="password">管理口令</label>
+          <input id="password" type="password" autocomplete="current-password" required />
+          <button type="submit" style="margin-top: 12px">登录</button>
+          <div id="loginError" class="error" role="alert"></div>
+        </form>
+      </section>
+
+      <section id="app" class="hidden">
+        <header>
+          <div>
+            <h1>贝格书库</h1>
+            <div class="muted">Pages 前端 · Workers 接口 · R2 文件</div>
+          </div>
+          <button id="logout" class="secondary">退出登录</button>
+        </header>
+
+        <section class="panel">
+          <h2>上传资料</h2>
+          <div class="row">
+            <select id="category" class="grow" aria-label="资料分类"></select>
+            <input id="fileInput" type="file" class="grow" />
+            <button id="upload">上传</button>
+          </div>
+          <div id="uploadStatus" class="muted" style="margin-top: 10px"></div>
+        </section>
+
+        <section class="panel">
+          <div class="row" style="justify-content: space-between">
+            <h2 style="margin: 0">资料列表</h2>
+            <button id="refresh" class="secondary">刷新</button>
+          </div>
+          <div id="listStatus" class="muted" style="margin-top: 10px"></div>
+          <ul id="files" class="file-list"></ul>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const API_BASE = String(window.LIBRARY_API_BASE || "").replace(/\/+$/, "");
+      const TOKEN_KEY = "beiger_library_token";
+      const loginPanel = document.getElementById("loginPanel");
+      const app = document.getElementById("app");
+      const loginError = document.getElementById("loginError");
+      const category = document.getElementById("category");
+      const fileInput = document.getElementById("fileInput");
+      const filesEl = document.getElementById("files");
+      const listStatus = document.getElementById("listStatus");
+      const uploadStatus = document.getElementById("uploadStatus");
+
+      let token = localStorage.getItem(TOKEN_KEY) || "";
+
+      function showApp() {
+        loginPanel.classList.add("hidden");
+        app.classList.remove("hidden");
+      }
+
+      function showLogin() {
+        app.classList.add("hidden");
+        loginPanel.classList.remove("hidden");
+      }
+
+      async function api(path, options = {}) {
+        const headers = new Headers(options.headers || {});
+        if (token) headers.set("x-library-token", token);
+        const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+        if (response.status === 401) {
+          token = "";
+          localStorage.removeItem(TOKEN_KEY);
+          showLogin();
+        }
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`);
+        return data;
+      }
+
+      function formatSize(bytes) {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+      }
+
+      async function loadCategories() {
+        const data = await api("/api/categories");
+        category.innerHTML = "";
+        data.categories.forEach((item) => {
+          const option = document.createElement("option");
+          option.value = item.path;
+          option.textContent = item.name;
+          category.appendChild(option);
+        });
+      }
+
+      async function loadFiles() {
+        listStatus.textContent = "加载中…";
+        filesEl.innerHTML = "";
+        try {
+          const data = await api(`/api/files?prefix=${encodeURIComponent(category.value || "")}`);
+          if (!data.files.length) {
+            filesEl.innerHTML = '<li class="empty">这个分类还没有资料。</li>';
+          } else {
+            data.files.forEach((item) => {
+              const li = document.createElement("li");
+              li.className = "file-item";
+              const info = document.createElement("div");
+              info.className = "file-name";
+              const name = document.createElement("div");
+              name.textContent = item.key.slice((category.value || "").length);
+              const meta = document.createElement("div");
+              meta.className = "file-meta";
+              meta.textContent = `${formatSize(item.size)} · ${item.uploaded ? new Date(item.uploaded).toLocaleString() : ""}`;
+              info.append(name, meta);
+
+              const actions = document.createElement("div");
+              actions.className = "row";
+              const download = document.createElement("button");
+              download.textContent = "下载";
+              download.addEventListener("click", () => downloadFile(item.key, download));
+              const remove = document.createElement("button");
+              remove.textContent = "删除";
+              remove.className = "danger";
+              remove.addEventListener("click", () => deleteFile(item.key));
+              actions.append(download, remove);
+              li.append(info, actions);
+              filesEl.appendChild(li);
+            });
+          }
+          listStatus.textContent = `共 ${data.files.length} 个文件`;
+        } catch (error) {
+          listStatus.textContent = error.message;
+        }
+      }
+
+      async function downloadFile(key, button) {
+        button.disabled = true;
+        try {
+          const response = await fetch(`${API_BASE}/api/download?key=${encodeURIComponent(key)}`, {
+            headers: { "x-library-token": token },
+          });
+          if (!response.ok) throw new Error("下载失败");
+          const blob = await response.blob();
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = key.split("/").pop() || "download";
+          link.click();
+          URL.revokeObjectURL(link.href);
+        } catch (error) {
+          listStatus.textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      async function deleteFile(key) {
+        if (!confirm(`确定删除“${key.split("/").pop()}”吗？`)) return;
+        try {
+          await api(`/api/delete?key=${encodeURIComponent(key)}`, { method: "DELETE" });
+          await loadFiles();
+        } catch (error) {
+          listStatus.textContent = error.message;
+        }
+      }
+
+      document.getElementById("loginForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        loginError.textContent = "";
+        try {
+          const password = document.getElementById("password").value;
+          const data = await api("/api/login", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ password }),
+          });
+          token = data.token;
+          localStorage.setItem(TOKEN_KEY, token);
+          document.getElementById("password").value = "";
+          showApp();
+          await loadCategories();
+          await loadFiles();
+        } catch (error) {
+          loginError.textContent = error.message;
+        }
+      });
+
+      document.getElementById("upload").addEventListener("click", async () => {
+        const file = fileInput.files[0];
+        if (!file) {
+          uploadStatus.textContent = "请选择一个文件。";
+          return;
+        }
+        const form = new FormData();
+        form.append("file", file);
+        form.append("key", `${category.value}${file.name}`);
+        uploadStatus.textContent = "上传中…";
+        try {
+          await api("/api/upload", { method: "POST", body: form });
+          fileInput.value = "";
+          uploadStatus.textContent = "上传完成。";
+          await loadFiles();
+        } catch (error) {
+          uploadStatus.textContent = error.message;
+        }
+      });
+
+      category.addEventListener("change", loadFiles);
+      document.getElementById("refresh").addEventListener("click", loadFiles);
+      document.getElementById("logout").addEventListener("click", () => {
+        token = "";
+        localStorage.removeItem(TOKEN_KEY);
+        showLogin();
+      });
+
+      if (token) {
+        showApp();
+        loadCategories().then(loadFiles).catch(() => showLogin());
+      }
+    </script>
+  </body>
+</html>
