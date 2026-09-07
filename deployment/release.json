@@ -1,0 +1,8 @@
+{
+  "project": "FileBrowser Quantum",
+  "repository": "https://github.com/gtsteffaniak/filebrowser",
+  "version": "v1.5.6-stable",
+  "url": "https://github.com/gtsteffaniak/filebrowser/releases/download/v1.5.6-stable/filebrowser.exe",
+  "sha256": "a4bbefab9b1570b675344f69e2ec7e6d8c70eb9ecefa3f0132330619be6223c8",
+  "license": "Apache-2.0"
+}

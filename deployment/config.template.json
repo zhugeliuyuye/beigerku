@@ -1,0 +1,52 @@
+{
+  "server": {
+    "listen": "127.0.0.1",
+    "port": 8090,
+    "baseURL": "/",
+    "database": "",
+    "cacheDir": "",
+    "minSearchLength": 1,
+    "numImageProcessors": 2,
+    "sources": [
+      {
+        "name": "学习资料",
+        "path": "",
+        "config": { "defaultEnabled": true }
+      }
+    ]
+  },
+  "auth": {
+    "adminUsername": "library",
+    "methods": {
+      "password": { "enabled": true, "minLength": 12, "signup": false }
+    }
+  },
+  "frontend": {
+    "name": "贝格书库",
+    "description": "个人学习资料库",
+    "disableDefaultLinks": true,
+    "disablePWAInstall": true,
+    "styling": { "disableEventThemes": true }
+  },
+  "userDefaults": {
+    "ui": { "locale": "zh-cn", "darkMode": false, "themeColor": "#24765e" },
+    "sidebar": { "sticky": true, "hideFiles": true },
+    "listing": {
+      "viewMode": "list",
+      "singleClick": true,
+      "deleteWithoutConfirming": false,
+      "deleteAfterArchive": false
+    },
+    "fileViewer": { "autoplayMedia": false },
+    "fileLoading": { "maxConcurrentUpload": 3, "uploadChunkSizeMb": 10 },
+    "account": {
+      "permissions": {
+        "create": true,
+        "modify": true,
+        "download": true,
+        "delete": true,
+        "share": false
+      }
+    }
+  }
+}

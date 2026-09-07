@@ -1,0 +1,9 @@
+.local/
+.runtime/
+*.log
+*.db
+*.sqlite*
+.env
+library-data/
+backups/
+
