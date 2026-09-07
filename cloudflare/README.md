@@ -34,6 +34,8 @@ npx wrangler login
 npx wrangler r2 bucket create beiger-library
 ```
 
+如果命令提示“请先在 Cloudflare Dashboard 启用 R2”，请先打开 Cloudflare 控制台的 R2 页面，点击开始使用并完成账户要求的确认。然后重新运行上面的命令。
+
 设置登录口令和会话密钥。口令不要写进 GitHub：
 
 ```powershell
@@ -71,7 +73,7 @@ window.LIBRARY_API_BASE = "https://beiger-library-worker.<你的账户>.workers.
 
 部署完成后，打开 Pages 分配的地址，输入刚才设置的 `ADMIN_PASSWORD` 即可使用。
 
-第一次部署时，`wrangler.toml` 的 `ALLOWED_ORIGIN` 暂时是 `*`，功能可以直接运行。上线后建议把它改成你的 Pages 地址，例如：
+第一次部署时，`wrangler.jsonc` 的 `ALLOWED_ORIGIN` 暂时是 `*`，功能可以直接运行。上线后建议把它改成你的 Pages 地址，例如：
 
 ```toml
 ALLOWED_ORIGIN = "https://beiger-library.pages.dev"

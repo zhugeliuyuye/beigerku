@@ -135,7 +135,7 @@ export default {
     }
 
     if (url.pathname === "/api/login" && request.method === "POST") {
-      const body = await request.json().catch(() => ({} as Record<string, unknown>));
+      const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
       const password = String(body.password || "");
       if (!env.ADMIN_PASSWORD || !env.SESSION_SECRET || password !== env.ADMIN_PASSWORD) {
         return json({ ok: false, error: "invalid password" }, withCors(request, env, { status: 401 }));
