@@ -372,6 +372,7 @@
 
       let currentUser = null;
       let loadedFiles = [];
+      let filesLoadError = "";
       let activeCategory = localStorage.getItem("beiger_active_category") || CATEGORIES[0];
       let rememberLogin = localStorage.getItem("beiger_remember_login") === "1";
 
@@ -463,6 +464,17 @@
       }
 
       function renderFiles() {
+        if (filesLoadError) {
+          clearSearch.classList.add("hidden");
+          filesEl.innerHTML = "";
+          const error = document.createElement("li");
+          error.className = "empty";
+          error.textContent = `无法加载资料：${filesLoadError}`;
+          filesEl.appendChild(error);
+          listStatus.textContent = "加载失败";
+          return;
+        }
+
         const query = searchInput.value.trim().toLowerCase();
         const visibleFiles = query
           ? loadedFiles.filter((file) => file.name.toLowerCase().includes(query))
@@ -539,12 +551,13 @@
 
       async function loadFiles() {
         if (!currentUser) return;
+        filesLoadError = "";
         listStatus.textContent = "加载中…";
         filesEl.innerHTML = "";
         const { data, error } = await client.storage.from(BUCKET).list(storagePrefix(), { limit: 100, sortBy: { column: "updated_at", order: "desc" } });
         if (error) {
           loadedFiles = [];
-          listStatus.textContent = error.message;
+          filesLoadError = error.message;
           renderFiles();
           updateCategoryLabel();
           return;
