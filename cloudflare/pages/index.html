@@ -9,16 +9,18 @@
     <style>
       :root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
       body { margin: 0; background: #f4f6f8; color: #172033; }
-      main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+      main { max-width: 1120px; margin: 0 auto; padding: 24px; }
       header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
       h1 { margin: 0 0 8px; font-size: 28px; }
       h2 { margin: 0 0 14px; font-size: 18px; }
       label { display: block; margin-bottom: 6px; color: #344054; font-size: 14px; }
       .panel { background: #fff; border: 1px solid #dde3ea; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-      .login { max-width: 440px; margin: 10vh auto 0; }
+      .login { max-width: 480px; margin: 10vh auto 0; }
       .muted { color: #667085; font-size: 14px; }
       .error { color: #b42318; min-height: 22px; margin-top: 10px; }
       .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+      .layout { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: start; }
+      .sidebar { position: sticky; top: 18px; }
       .grow { flex: 1 1 240px; }
       input, select, button { font: inherit; }
       input, select { padding: 10px 12px; border: 1px solid #cfd7df; border-radius: 6px; box-sizing: border-box; background: #fff; }
@@ -28,6 +30,11 @@
       button.danger { background: #b42318; }
       button:disabled { opacity: .55; cursor: wait; }
       .field { margin-top: 12px; }
+      .checkline { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; color: #344054; }
+      .checkline input { width: 16px; height: 16px; margin: 0; }
+      .category-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+      .category-list button { width: 100%; text-align: left; background: #eef2f6; color: #172033; }
+      .category-list button.active { background: #24765e; color: #fff; }
       .file-list { list-style: none; padding: 0; margin: 0; }
       .file-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #edf0f2; }
       .file-item:last-child { border-bottom: 0; }
@@ -39,6 +46,8 @@
         main { padding: 16px; }
         header { display: block; }
         header button { margin-top: 12px; }
+        .layout { grid-template-columns: 1fr; }
+        .sidebar { position: static; }
         .file-item { align-items: flex-start; flex-direction: column; }
       }
     </style>
@@ -57,6 +66,10 @@
             <label for="password">密码</label>
             <input id="password" type="password" autocomplete="current-password" required />
           </div>
+          <label class="checkline">
+            <input id="rememberMe" type="checkbox" />
+            <span>记住我，保持登录和邮箱</span>
+          </label>
           <button type="submit" style="margin-top: 14px">登录</button>
           <div id="loginError" class="error" role="alert"></div>
         </form>
@@ -71,35 +84,44 @@
           <button id="logout" class="secondary">退出登录</button>
         </header>
 
-        <section class="panel">
-          <h2>上传资料</h2>
-          <div class="row">
-            <select id="category" class="grow" aria-label="资料分类"></select>
-            <input id="fileInput" type="file" class="grow" />
-            <button id="upload">上传</button>
-          </div>
-          <div id="uploadStatus" class="muted" style="margin-top: 10px"></div>
-        </section>
+        <div class="layout">
+          <aside class="sidebar">
+            <section class="panel">
+              <h2>分类</h2>
+              <ul id="categoryList" class="category-list"></ul>
+            </section>
 
-        <section class="panel">
-          <div class="row" style="justify-content: space-between">
-            <h2 style="margin: 0">资料列表</h2>
-            <button id="refresh" class="secondary">刷新</button>
-          </div>
-          <div id="listStatus" class="muted" style="margin-top: 10px"></div>
-          <ul id="files" class="file-list"></ul>
-        </section>
+            <section class="panel">
+              <h2>上传资料</h2>
+              <input id="fileInput" type="file" class="grow" />
+              <button id="upload" style="margin-top: 10px; width: 100%">上传到当前分类</button>
+              <div id="uploadStatus" class="muted" style="margin-top: 10px"></div>
+            </section>
+          </aside>
+
+          <section class="panel">
+            <div class="row" style="justify-content: space-between">
+              <div>
+                <h2 style="margin: 0">资料列表</h2>
+                <div id="currentCategory" class="muted"></div>
+              </div>
+              <button id="refresh" class="secondary">刷新</button>
+            </div>
+            <div id="listStatus" class="muted" style="margin-top: 10px"></div>
+            <ul id="files" class="file-list"></ul>
+          </section>
+        </div>
       </section>
     </main>
 
     <script>
       const CATEGORIES = [
-        "01 编程与技术",
-        "02 英语与语言",
-        "03 考试与课程",
-        "04 阅读与论文",
-        "05 笔记与总结",
-        "99 待整理",
+        "半导体工艺",
+        "半导体器件",
+        "数电",
+        "模电",
+        "数集",
+        "模集",
       ];
       const BUCKET = window.LIBRARY_BUCKET || "library";
       const client = window.supabase.createClient(
@@ -110,14 +132,18 @@
       const loginPanel = document.getElementById("loginPanel");
       const app = document.getElementById("app");
       const loginError = document.getElementById("loginError");
-      const category = document.getElementById("category");
+      const categoryList = document.getElementById("categoryList");
       const fileInput = document.getElementById("fileInput");
       const filesEl = document.getElementById("files");
       const listStatus = document.getElementById("listStatus");
       const uploadStatus = document.getElementById("uploadStatus");
       const account = document.getElementById("account");
+      const rememberMe = document.getElementById("rememberMe");
+      const currentCategory = document.getElementById("currentCategory");
 
       let currentUser = null;
+      let activeCategory = localStorage.getItem("beiger_active_category") || CATEGORIES[0];
+      let rememberLogin = localStorage.getItem("beiger_remember_login") === "1";
 
       function showApp() {
         loginPanel.classList.add("hidden");
@@ -130,7 +156,7 @@
       }
 
       function storagePrefix() {
-        return `${currentUser.id}/${category.value}`;
+        return `${currentUser.id}/${activeCategory}/`;
       }
 
       function filePath(fileName) {
@@ -143,14 +169,28 @@
         return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
       }
 
-      function fillCategories() {
-        category.innerHTML = "";
+      function renderCategories() {
+        categoryList.innerHTML = "";
         CATEGORIES.forEach((name) => {
-          const option = document.createElement("option");
-          option.value = `${name}/`;
-          option.textContent = name;
-          category.appendChild(option);
+          const li = document.createElement("li");
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = name;
+          if (name === activeCategory) button.classList.add("active");
+          button.addEventListener("click", async () => {
+            activeCategory = name;
+            localStorage.setItem("beiger_active_category", activeCategory);
+            renderCategories();
+            updateCategoryLabel();
+            await loadFiles();
+          });
+          li.appendChild(button);
+          categoryList.appendChild(li);
         });
+      }
+
+      function updateCategoryLabel() {
+        currentCategory.textContent = `当前分类：${activeCategory}`;
       }
 
       async function requireUser() {
@@ -251,6 +291,9 @@
           return;
         }
         document.getElementById("password").value = "";
+        localStorage.setItem("beiger_remember_login", rememberMe.checked ? "1" : "0");
+        if (rememberMe.checked) localStorage.setItem("beiger_saved_email", email);
+        else localStorage.removeItem("beiger_saved_email");
         if (await requireUser()) await loadFiles();
       });
 
@@ -282,10 +325,15 @@
         showLogin();
       });
 
-      fillCategories();
+      renderCategories();
+      updateCategoryLabel();
+      const savedEmail = localStorage.getItem("beiger_saved_email");
+      if (savedEmail) document.getElementById("email").value = savedEmail;
+      rememberMe.checked = rememberLogin;
       requireUser().then((ok) => {
         if (ok) loadFiles();
       });
     </script>
   </body>
 </html>
+
