@@ -1,98 +1,71 @@
-# Cloudflare 版部署说明
+# Cloudflare Pages + Supabase 部署说明
 
-这是一套适合个人使用的最小版本：
+这是一套不依赖 Cloudflare R2 的个人资料库方案：
 
-- `Pages`：网页前端
-- `Workers`：登录、分类、上传、下载、删除 API
-- `R2`：实际资料文件
+- `Cloudflare Pages`：托管网页
+- `Supabase Auth`：邮箱密码登录
+- `Supabase Storage`：保存资料文件
 
-现有的 FileBrowser 本地版继续保留；Cloudflare 版是另一套独立存储。两边不会自动同步。
+现有的 FileBrowser 本地版继续保留；这个云端版使用 Supabase 存储，两边不会自动同步。
 
 ## 已实现
 
-- 管理口令登录
+- 邮箱密码登录
 - 六个学习资料分类
-- 上传文件到 R2
-- 列出当前分类文件
+- 上传文件到 Supabase Storage
+- 按分类列出文件
 - 下载文件
 - 删除文件
-- 7 天登录令牌
 
-## 部署前准备
+## Supabase 设置
 
-需要一个 Cloudflare 账号，并安装 Node.js。进入项目目录：
-
-```powershell
-cd C:\Users\24291\Documents\ChatGPT\A\cloudflare\worker
-npm install
-npx wrangler login
-```
-
-创建 R2 存储桶：
-
-```powershell
-npx wrangler r2 bucket create beiger-library
-```
-
-如果命令提示“请先在 Cloudflare Dashboard 启用 R2”，请先打开 Cloudflare 控制台的 R2 页面，点击开始使用并完成账户要求的确认。然后重新运行上面的命令。
-
-设置登录口令和会话密钥。口令不要写进 GitHub：
-
-```powershell
-npx wrangler secret put ADMIN_PASSWORD
-npx wrangler secret put SESSION_SECRET
-```
-
-`ADMIN_PASSWORD` 是登录书库的口令；`SESSION_SECRET` 可以设置成一串随机长字符串。
-
-## 部署 Worker
-
-```powershell
-npx wrangler deploy
-```
-
-部署成功后会得到一个类似下面的 Worker 地址：
+项目地址已经写入 `cloudflare/pages/config.js`：
 
 ```text
-https://beiger-library-worker.<你的账户>.workers.dev
+https://wcyozlrzwcgieinbdocw.supabase.co
 ```
 
-把这个地址写入 `cloudflare/pages/config.js`：
+公开 publishable key 也已经写入前端配置。不要把 `service_role` key 放进网页或 GitHub。
 
-```javascript
-window.LIBRARY_API_BASE = "https://beiger-library-worker.<你的账户>.workers.dev";
+在 Supabase 控制台打开 SQL Editor，执行：
+
+```sql
+-- 文件位置：supabase/setup-library-storage.sql
 ```
+
+也就是把仓库里的 `supabase/setup-library-storage.sql` 全部复制到 SQL Editor 后运行。它会创建私有 `library` bucket，并设置只允许登录用户访问自己文件夹的 Storage policies。
+
+然后在 Supabase 控制台创建你的登录用户：
+
+1. 打开 Authentication
+2. 进入 Users
+3. 点击 Add user
+4. 填写你的邮箱和密码
+
+建议只创建你自己的账号，并关闭公开注册。
 
 ## 部署 Pages
 
-在 Cloudflare Dashboard 中创建 Pages 项目，连接 GitHub 仓库：
+在 Cloudflare Dashboard 创建 Pages 项目，连接 GitHub 仓库：
 
 - 生产分支：`main`
 - 构建命令：留空
 - 输出目录：`cloudflare/pages`
 
-部署完成后，打开 Pages 分配的地址，输入刚才设置的 `ADMIN_PASSWORD` 即可使用。
+部署完成后，打开 Pages 分配的网址，用刚才在 Supabase 创建的邮箱和密码登录。
 
-第一次部署时，`wrangler.jsonc` 的 `ALLOWED_ORIGIN` 暂时是 `*`，功能可以直接运行。上线后建议把它改成你的 Pages 地址，例如：
+当前已经创建的 Pages 项目：
 
-```toml
-ALLOWED_ORIGIN = "https://beiger-library.pages.dev"
+```text
+https://beiger-library.pages.dev/
 ```
 
-改完后重新部署 Worker：
+本次直接部署生成的预览地址：
 
-```powershell
-npx wrangler deploy
+```text
+https://d307013c.beiger-library.pages.dev
 ```
 
-## 数据位置和费用提醒
+## 使用限制
 
-文件保存在 R2，不再保存在电脑的 `BeigerLibrary` 文件夹。原来的本地版和 Cloudflare 版是两套资料库。使用前先上传少量测试文件确认流程。
-
-Cloudflare 资源通常按使用量计费，具体费用以 Cloudflare 控制台当前显示为准。不要把登录口令、`SESSION_SECRET` 或 Cloudflare API Token 提交到 GitHub。
-
-## 本地检查
-
-```powershell
-npm run typecheck
-```
+Supabase 免费版适合个人小资料库。请先上传少量测试文件确认流程，再逐步迁移资料。免费项目可能因长时间不用而暂停；如果网站突然无法访问，先去 Supabase 控制台检查项目状态。
