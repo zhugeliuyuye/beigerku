@@ -3,145 +3,375 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f6f8" />
     <title>贝格书库</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.min.js"></script>
     <script src="./config.js"></script>
     <style>
-      :root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-      body { margin: 0; background: #f4f6f8; color: #172033; }
-      main { max-width: 1120px; margin: 0 auto; padding: 24px; }
-      header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
-      h1 { margin: 0 0 8px; font-size: 28px; }
-      h2 { margin: 0 0 14px; font-size: 18px; }
-      label { display: block; margin-bottom: 6px; color: #344054; font-size: 14px; }
-      .panel { background: #fff; border: 1px solid #dde3ea; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-      .login { max-width: 480px; margin: 10vh auto 0; }
-      .muted { color: #667085; font-size: 14px; }
-      .error { color: #b42318; min-height: 22px; margin-top: 10px; }
-      .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-      .layout { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: start; }
-      .sidebar { position: sticky; top: 18px; }
-      .grow { flex: 1 1 240px; }
-      input, select, button { font: inherit; }
-      input, select { padding: 10px 12px; border: 1px solid #cfd7df; border-radius: 6px; box-sizing: border-box; background: #fff; }
-      input[type="email"], input[type="password"] { width: 100%; }
-      button { padding: 10px 14px; border: 0; border-radius: 6px; background: #24765e; color: #fff; cursor: pointer; }
-      button.secondary { background: #e8edf2; color: #172033; }
-      button.danger { background: #b42318; }
-      button:disabled { opacity: .55; cursor: wait; }
-      .field { margin-top: 12px; }
-      .checkline { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; color: #344054; }
-      .checkline input { width: 16px; height: 16px; margin: 0; }
-      .category-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-      .category-list button { width: 100%; text-align: left; background: #eef2f6; color: #172033; }
-      .category-list button.active { background: #24765e; color: #fff; }
-      .file-list { list-style: none; padding: 0; margin: 0; }
-      .file-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #edf0f2; }
-      .file-item:last-child { border-bottom: 0; }
-      .file-name { min-width: 0; overflow-wrap: anywhere; }
-      .file-meta { color: #667085; font-size: 13px; margin-top: 3px; }
-      .empty { color: #667085; padding: 12px 0; }
+      :root {
+        color-scheme: light;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        --page: #f4f6f8;
+        --surface: #ffffff;
+        --surface-soft: #f8fafc;
+        --surface-row: #fbfcfd;
+        --text: #172033;
+        --text-soft: #344054;
+        --muted: #667085;
+        --placeholder: #98a2b3;
+        --border: #dde3ea;
+        --border-soft: #e7ecf2;
+        --accent: #24765e;
+        --accent-dark: #1e654f;
+        --accent-soft: #e8f3ee;
+        --danger: #b42318;
+        --shadow: 0 18px 40px rgba(20, 38, 64, 0.1);
+      }
+
+      * { box-sizing: border-box; }
+      html { min-width: 320px; background: var(--page); }
+      body { margin: 0; min-height: 100vh; background: var(--page); color: var(--text); }
+      button, input { font: inherit; }
+      button { border: 0; cursor: pointer; }
+      button:focus-visible, input:focus-visible, label:focus-visible {
+        outline: 3px solid rgba(36, 118, 94, 0.22);
+        outline-offset: 2px;
+      }
+
       .hidden { display: none !important; }
-      @media (max-width: 640px) {
-        main { padding: 16px; }
-        header { display: block; }
-        header button { margin-top: 12px; }
+      .page-shell { width: min(1360px, calc(100% - 48px)); margin: 0 auto; padding: 40px 0; }
+      .muted { color: var(--muted); }
+      .error { min-height: 20px; margin: 12px 0 0; color: var(--danger); font-size: 13px; line-height: 1.5; }
+
+      /* Login */
+      .login-view { min-height: calc(100vh - 80px); display: grid; place-items: center; }
+      .login-card {
+        width: min(420px, 100%);
+        padding: 32px;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+      .brand-chip, .status-pill, .type-chip, .sync-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        border-radius: 999px;
+      }
+      .brand-chip { padding: 8px 12px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; }
+      .login-title { margin: 20px 0 6px; font-size: 34px; line-height: 1.15; letter-spacing: 0; }
+      .login-subtitle { margin: 0 0 26px; color: var(--muted); font-size: 14px; }
+      .field { display: grid; gap: 8px; margin-top: 16px; }
+      .field label { color: var(--text-soft); font-size: 13px; font-weight: 600; }
+      .field input {
+        width: 100%;
+        height: 48px;
+        padding: 0 14px;
+        border: 1px solid #d0d7e2;
+        border-radius: 12px;
+        background: var(--surface-soft);
+        color: var(--text);
+        font-size: 14px;
+        transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+      }
+      .field input::placeholder { color: var(--placeholder); }
+      .field input:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgba(36, 118, 94, 0.1); outline: 0; }
+      .remember-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; color: var(--text-soft); font-size: 14px; cursor: pointer; }
+      .remember-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+      .primary-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 48px;
+        padding: 0 16px;
+        border-radius: 12px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 650;
+        transition: background .18s ease, transform .18s ease;
+      }
+      .primary-button:hover { background: var(--accent-dark); }
+      .primary-button:active { transform: translateY(1px); }
+      .login-submit { width: 100%; margin-top: 18px; }
+      .security-note { display: flex; align-items: center; gap: 7px; margin-top: 16px; color: var(--muted); font-size: 12px; }
+      .security-note::before { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); content: ""; }
+
+      /* Dashboard */
+      .app-shell { min-height: calc(100vh - 80px); }
+      .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; min-height: 72px; margin-bottom: 24px; padding: 8px 28px; }
+      .page-title { margin: 0; font-size: 28px; line-height: 1.2; letter-spacing: 0; }
+      .page-subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.35; }
+      .topbar-right { display: flex; align-items: center; gap: 16px; }
+      .status-pills { display: flex; gap: 10px; }
+      .status-pill { padding: 10px 14px; background: #eef2f6; color: var(--text); font-size: 13px; font-weight: 600; }
+      .status-pill.success { background: var(--accent); color: #fff; }
+      .account-control { display: flex; align-items: center; gap: 10px; }
+      .avatar { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 700; }
+      .account-email { max-width: 210px; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+      .ghost-button, .refresh-button, .action-button, .clear-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: #eef2f6;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 600;
+        transition: background .18s ease, color .18s ease;
+      }
+      .ghost-button:hover, .refresh-button:hover, .action-button:hover, .clear-button:hover { background: #e1e7ec; }
+      .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; align-items: stretch; }
+      .sidebar, .main-panel { min-width: 0; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); }
+      .sidebar { display: flex; flex-direction: column; gap: 20px; min-height: 776px; padding: 24px 20px; }
+      .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
+      .section-heading h2, .content-title, .list-title { margin: 0; font-size: 18px; line-height: 1.25; }
+      .section-count { display: inline-flex; min-width: 24px; height: 24px; align-items: center; justify-content: center; border-radius: 999px; background: var(--surface-soft); color: var(--muted); font-size: 12px; font-weight: 600; }
+      .category-list { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
+      .category-button { width: 100%; min-height: 48px; padding: 0 14px; border-radius: 12px; background: var(--surface-soft); color: var(--text); text-align: center; font-size: 14px; font-weight: 550; transition: background .18s ease, color .18s ease, transform .18s ease; }
+      .category-button:hover { background: #edf3f0; }
+      .category-button.active { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+      .category-button:active { transform: translateY(1px); }
+      .upload-card { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); }
+      .upload-card h2 { margin: 0; font-size: 16px; }
+      .upload-copy { margin: 8px 0 14px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+      .file-picker { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 12px; border: 1px dashed #c8d2dc; border-radius: 10px; background: var(--surface-soft); color: var(--muted); cursor: pointer; font-size: 13px; transition: border-color .18s ease, color .18s ease, background .18s ease; }
+      .file-picker:hover { border-color: var(--accent); color: var(--accent); background: #f2f8f5; }
+      .upload-icon { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 7px; background: var(--accent-soft); color: var(--accent); font-size: 16px; line-height: 1; }
+      .file-picker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hidden-file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+      .upload-button { width: 100%; margin-top: 10px; min-height: 42px; border-radius: 10px; font-size: 13px; }
+      .upload-status { min-height: 20px; margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+      .main-panel { min-height: 776px; padding: 24px; }
+      .content-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; min-height: 40px; }
+      .content-subtitle { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+      .refresh-button { flex: 0 0 auto; }
+      .search-wrap { position: relative; margin-top: 14px; }
+      .search-icon { position: absolute; left: 16px; top: 50%; color: var(--placeholder); font-size: 18px; line-height: 1; transform: translateY(-52%); pointer-events: none; }
+      .search-input { width: 100%; height: 48px; padding: 0 16px 0 42px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-soft); color: var(--text); font-size: 13px; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+      .search-input::placeholder { color: var(--placeholder); }
+      .search-input:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgba(36, 118, 94, 0.1); outline: 0; }
+      .stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+      .stat-card { min-height: 88px; padding: 16px; border: 1px solid var(--border-soft); border-radius: 16px; background: var(--surface-soft); }
+      .stat-label { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+      .stat-value { display: block; min-height: 27px; margin-top: 4px; overflow: hidden; font-size: 22px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+      .stat-value.category-value { font-size: 20px; }
+      .stat-meta { display: block; margin-top: 5px; color: var(--placeholder); font-size: 11px; }
+      .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 22px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); }
+      .list-heading { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+      .list-title { font-size: 16px; }
+      .list-status { color: var(--muted); font-size: 12px; }
+      .clear-button { min-height: 30px; padding: 0 10px; color: var(--muted); font-size: 12px; }
+      .file-list { display: grid; gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; }
+      .file-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; padding: 14px 16px; border: 1px solid var(--border-soft); border-radius: 14px; background: var(--surface-row); transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+      .file-item:hover { border-color: #cbd9d2; box-shadow: 0 6px 16px rgba(20, 38, 64, 0.05); transform: translateY(-1px); }
+      .file-info { min-width: 0; }
+      .file-name { overflow: hidden; color: var(--text); font-size: 14px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+      .file-meta { margin-top: 4px; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+      .file-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+      .type-chip, .sync-chip { min-height: 30px; padding: 0 12px; font-size: 12px; font-weight: 600; }
+      .type-chip { background: #eef2f6; color: var(--text); }
+      .sync-chip { background: var(--accent); color: #fff; }
+      .action-button { min-height: 30px; padding: 0 10px; font-size: 12px; }
+      .action-button.delete { background: #fff1f0; color: var(--danger); }
+      .action-button.delete:hover { background: #ffe3e0; }
+      .empty { padding: 48px 16px; color: var(--muted); text-align: center; font-size: 13px; }
+      .footer-note { margin: 16px 0 0; color: var(--placeholder); font-size: 11px; text-align: right; }
+
+      @media (max-width: 980px) {
+        .page-shell { width: min(100% - 32px, 760px); padding: 24px 0; }
+        .topbar { padding: 8px 0; }
+        .topbar-right { align-items: flex-end; flex-direction: column; gap: 10px; }
         .layout { grid-template-columns: 1fr; }
-        .sidebar { position: static; }
-        .file-item { align-items: flex-start; flex-direction: column; }
+        .sidebar { min-height: 0; }
+        .category-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        .upload-card { margin-top: 0; }
+      }
+
+      @media (max-width: 640px) {
+        .page-shell { width: min(100% - 24px, 420px); padding: 12px 0 24px; }
+        .login-view, .app-shell { min-height: calc(100vh - 36px); }
+        .login-card { padding: 24px; border-radius: 20px; }
+        .login-title { font-size: 30px; }
+        .topbar { display: block; margin-bottom: 16px; }
+        .topbar-right { align-items: flex-start; flex-direction: row; flex-wrap: wrap; margin-top: 16px; }
+        .status-pills { flex: 1 1 100%; }
+        .status-pill { flex: 1; text-align: center; }
+        .account-control { width: 100%; justify-content: space-between; }
+        .account-email { max-width: calc(100vw - 160px); }
+        .sidebar, .main-panel { border-radius: 16px; }
+        .sidebar, .main-panel { padding: 18px; }
+        .category-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .stats-grid { grid-template-columns: 1fr; }
+        .stat-card { min-height: 78px; }
+        .list-toolbar { align-items: flex-start; flex-direction: column; gap: 10px; }
+        .file-item { align-items: flex-start; flex-direction: column; gap: 12px; }
+        .file-info { width: 100%; }
+        .file-actions { width: 100%; justify-content: flex-end; }
+        .footer-note { text-align: left; }
       }
     </style>
   </head>
   <body>
-    <main>
-      <section id="loginPanel" class="panel login">
-        <h1>贝格书库</h1>
-        <p class="muted">Supabase 免费存储版</p>
-        <form id="loginForm">
-          <div class="field">
-            <label for="email">邮箱</label>
-            <input id="email" type="email" autocomplete="email" required />
-          </div>
-          <div class="field">
-            <label for="password">密码</label>
-            <input id="password" type="password" autocomplete="current-password" required />
-          </div>
-          <label class="checkline">
-            <input id="rememberMe" type="checkbox" />
-            <span>记住我，保持登录和邮箱</span>
-          </label>
-          <button type="submit" style="margin-top: 14px">登录</button>
-          <div id="loginError" class="error" role="alert"></div>
-        </form>
+    <main class="page-shell">
+      <section id="loginPanel" class="login-view" aria-labelledby="loginTitle">
+        <div class="login-card">
+          <span class="brand-chip">Supabase Auth · Storage</span>
+          <h1 id="loginTitle" class="login-title">贝格书库</h1>
+          <p class="login-subtitle">个人学习资料云库</p>
+          <form id="loginForm">
+            <div class="field">
+              <label for="email">邮箱</label>
+              <input id="email" type="email" autocomplete="email" placeholder="name@example.com" required />
+            </div>
+            <div class="field">
+              <label for="password">密码</label>
+              <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+            </div>
+            <label class="remember-row" for="rememberMe">
+              <input id="rememberMe" type="checkbox" />
+              <span>记住我，保持登录状态</span>
+            </label>
+            <button id="loginButton" class="primary-button login-submit" type="submit">
+              <span>登录</span><span aria-hidden="true">→</span>
+            </button>
+            <div id="loginError" class="error" role="alert" aria-live="polite"></div>
+          </form>
+          <div class="security-note">不会保存明文密码，只记住邮箱与会话。</div>
+        </div>
       </section>
 
-      <section id="app" class="hidden">
-        <header>
+      <section id="app" class="app-shell hidden" aria-labelledby="appTitle">
+        <header class="topbar">
           <div>
-            <h1>贝格书库</h1>
-            <div id="account" class="muted">Pages 前端 · Supabase Auth · Supabase Storage</div>
+            <h1 id="appTitle" class="page-title">贝格书库</h1>
+            <p class="page-subtitle">半导体工艺 · 器件 · 数电 · 模电 · 数集 · 模集</p>
           </div>
-          <button id="logout" class="secondary">退出登录</button>
+          <div class="topbar-right">
+            <div class="status-pills" aria-label="服务状态">
+              <span class="status-pill">Pages 前端</span>
+              <span class="status-pill success">Supabase 登录</span>
+            </div>
+            <div class="account-control">
+              <span id="avatar" class="avatar" aria-hidden="true">B</span>
+              <span id="account" class="account-email">正在读取账号</span>
+              <button id="logout" class="ghost-button" type="button">退出登录</button>
+            </div>
+          </div>
         </header>
 
         <div class="layout">
           <aside class="sidebar">
-            <section class="panel">
-              <h2>分类</h2>
-              <ul id="categoryList" class="category-list"></ul>
+            <section aria-labelledby="categoryTitle">
+              <div class="section-heading">
+                <h2 id="categoryTitle">分类</h2>
+                <span class="section-count">6</span>
+              </div>
+              <nav aria-label="资料分类">
+                <ul id="categoryList" class="category-list"></ul>
+              </nav>
             </section>
 
-            <section class="panel">
-              <h2>上传资料</h2>
-              <input id="fileInput" type="file" class="grow" />
-              <button id="upload" style="margin-top: 10px; width: 100%">上传到当前分类</button>
-              <div id="uploadStatus" class="muted" style="margin-top: 10px"></div>
+            <section class="upload-card" aria-labelledby="uploadTitle">
+              <h2 id="uploadTitle">上传资料</h2>
+              <p class="upload-copy">当前分类：<span id="uploadCategory">半导体工艺</span></p>
+              <input id="fileInput" class="hidden-file-input" type="file" />
+              <label class="file-picker" for="fileInput">
+                <span class="upload-icon" aria-hidden="true">＋</span>
+                <span id="selectedFileName" class="file-picker-name">选择文件</span>
+              </label>
+              <button id="upload" class="primary-button upload-button" type="button">上传到当前分类 <span aria-hidden="true">→</span></button>
+              <p id="uploadStatus" class="upload-status" aria-live="polite"></p>
             </section>
           </aside>
 
-          <section class="panel">
-            <div class="row" style="justify-content: space-between">
+          <section class="main-panel" aria-labelledby="contentTitle">
+            <div class="content-header">
               <div>
-                <h2 style="margin: 0">资料列表</h2>
-                <div id="currentCategory" class="muted"></div>
+                <h2 id="contentTitle" class="content-title">资料列表</h2>
+                <p id="currentCategory" class="content-subtitle">当前分类：半导体工艺</p>
               </div>
-              <button id="refresh" class="secondary">刷新</button>
+              <button id="refresh" class="refresh-button" type="button"><span aria-hidden="true">↻</span> 刷新</button>
             </div>
-            <div id="listStatus" class="muted" style="margin-top: 10px"></div>
+
+            <div class="search-wrap">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <input id="searchInput" class="search-input" type="search" placeholder="搜索资料名、标签或课程名" autocomplete="off" />
+            </div>
+
+            <div class="stats-grid" aria-label="资料统计">
+              <article class="stat-card">
+                <span class="stat-label">总资料</span>
+                <strong id="totalCount" class="stat-value">0</strong>
+                <span class="stat-meta">全部分类</span>
+              </article>
+              <article class="stat-card">
+                <span class="stat-label">本周新增</span>
+                <strong id="weekCount" class="stat-value">0</strong>
+                <span class="stat-meta">最近 7 天</span>
+              </article>
+              <article class="stat-card">
+                <span class="stat-label">当前分类</span>
+                <strong id="currentCategoryStat" class="stat-value category-value">半导体工艺</strong>
+                <span id="currentCategoryMeta" class="stat-meta">0 个文件</span>
+              </article>
+            </div>
+
+            <div class="list-toolbar">
+              <div class="list-heading">
+                <h3 class="list-title">文件</h3>
+                <span id="listStatus" class="list-status" aria-live="polite"></span>
+              </div>
+              <button id="clearSearch" class="clear-button hidden" type="button">清除搜索</button>
+            </div>
             <ul id="files" class="file-list"></ul>
+            <p class="footer-note">文件只对当前 Supabase 账号可见</p>
           </section>
         </div>
       </section>
     </main>
 
     <script>
-      const CATEGORIES = [
-        "半导体工艺",
-        "半导体器件",
-        "数电",
-        "模电",
-        "数集",
-        "模集",
-      ];
+      const CATEGORIES = ["半导体工艺", "半导体器件", "数电", "模电", "数集", "模集"];
       const BUCKET = window.LIBRARY_BUCKET || "library";
-      const client = window.supabase.createClient(
-        window.SUPABASE_URL,
-        window.SUPABASE_PUBLISHABLE_KEY,
-      );
+      const hasSupabaseConfig = Boolean(window.SUPABASE_URL && window.SUPABASE_PUBLISHABLE_KEY && window.supabase);
+      const client = hasSupabaseConfig
+        ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY)
+        : null;
 
       const loginPanel = document.getElementById("loginPanel");
       const app = document.getElementById("app");
+      const loginForm = document.getElementById("loginForm");
+      const loginButton = document.getElementById("loginButton");
       const loginError = document.getElementById("loginError");
+      const emailInput = document.getElementById("email");
+      const passwordInput = document.getElementById("password");
+      const rememberMe = document.getElementById("rememberMe");
       const categoryList = document.getElementById("categoryList");
       const fileInput = document.getElementById("fileInput");
+      const selectedFileName = document.getElementById("selectedFileName");
       const filesEl = document.getElementById("files");
       const listStatus = document.getElementById("listStatus");
       const uploadStatus = document.getElementById("uploadStatus");
       const account = document.getElementById("account");
-      const rememberMe = document.getElementById("rememberMe");
+      const avatar = document.getElementById("avatar");
       const currentCategory = document.getElementById("currentCategory");
+      const uploadCategory = document.getElementById("uploadCategory");
+      const currentCategoryStat = document.getElementById("currentCategoryStat");
+      const currentCategoryMeta = document.getElementById("currentCategoryMeta");
+      const totalCount = document.getElementById("totalCount");
+      const weekCount = document.getElementById("weekCount");
+      const searchInput = document.getElementById("searchInput");
+      const clearSearch = document.getElementById("clearSearch");
 
       let currentUser = null;
+      let loadedFiles = [];
       let activeCategory = localStorage.getItem("beiger_active_category") || CATEGORIES[0];
       let rememberLogin = localStorage.getItem("beiger_remember_login") === "1";
 
@@ -155,18 +385,57 @@
         loginPanel.classList.remove("hidden");
       }
 
-      function storagePrefix() {
-        return `${currentUser.id}/${activeCategory}/`;
+      function setButtonBusy(button, busy, busyLabel) {
+        if (!button) return;
+        button.disabled = busy;
+        if (busy) {
+          button.dataset.originalLabel = button.innerHTML;
+          button.textContent = busyLabel;
+        } else if (button.dataset.originalLabel) {
+          button.innerHTML = button.dataset.originalLabel;
+          delete button.dataset.originalLabel;
+        }
       }
 
-      function filePath(fileName) {
-        return `${storagePrefix()}${fileName}`;
+      function storagePrefix(category = activeCategory) {
+        return `${currentUser.id}/${category}/`;
+      }
+
+      function filePath(fileName, category = activeCategory) {
+        return `${storagePrefix(category)}${fileName}`;
       }
 
       function formatSize(bytes) {
+        if (!Number.isFinite(bytes)) return "未知大小";
         if (bytes < 1024) return `${bytes} B`;
         if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+        return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
+      }
+
+      function formatDate(value) {
+        if (!value) return "时间未知";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "时间未知";
+        return date.toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+      }
+
+      function fileType(name) {
+        const extension = name.includes(".") ? name.split(".").pop().toUpperCase() : "文件";
+        const labels = { PDF: "PDF", DOC: "文档", DOCX: "文档", XLS: "表格", XLSX: "表格", PPT: "演示", PPTX: "演示", PNG: "图片", JPG: "图片", JPEG: "图片", GIF: "图片", ZIP: "压缩包", RAR: "压缩包", MP4: "视频", MP3: "音频" };
+        return labels[extension] || extension.slice(0, 8);
+      }
+
+      function initials(value) {
+        const trimmed = (value || "B").trim();
+        return trimmed.slice(0, 1).toUpperCase();
+      }
+
+      function updateCategoryLabel() {
+        currentCategory.textContent = `当前分类：${activeCategory}`;
+        uploadCategory.textContent = activeCategory;
+        currentCategoryStat.textContent = activeCategory;
+        currentCategoryMeta.textContent = `${loadedFiles.length} 个文件`;
       }
 
       function renderCategories() {
@@ -175,25 +444,86 @@
           const li = document.createElement("li");
           const button = document.createElement("button");
           button.type = "button";
+          button.className = "category-button";
           button.textContent = name;
+          button.setAttribute("aria-pressed", String(name === activeCategory));
           if (name === activeCategory) button.classList.add("active");
           button.addEventListener("click", async () => {
+            if (name === activeCategory) return;
             activeCategory = name;
             localStorage.setItem("beiger_active_category", activeCategory);
+            searchInput.value = "";
             renderCategories();
             updateCategoryLabel();
-            await loadFiles();
+            await refreshData();
           });
           li.appendChild(button);
           categoryList.appendChild(li);
         });
       }
 
-      function updateCategoryLabel() {
-        currentCategory.textContent = `当前分类：${activeCategory}`;
+      function renderFiles() {
+        const query = searchInput.value.trim().toLowerCase();
+        const visibleFiles = query
+          ? loadedFiles.filter((file) => file.name.toLowerCase().includes(query))
+          : loadedFiles;
+        clearSearch.classList.toggle("hidden", !query);
+        filesEl.innerHTML = "";
+
+        if (!visibleFiles.length) {
+          const empty = document.createElement("li");
+          empty.className = "empty";
+          empty.textContent = query ? "没有找到匹配的资料。" : "这个分类还没有资料。";
+          filesEl.appendChild(empty);
+          listStatus.textContent = query ? "搜索到 0 个文件" : "共 0 个文件";
+          return;
+        }
+
+        visibleFiles.forEach((file) => {
+          const li = document.createElement("li");
+          li.className = "file-item";
+
+          const info = document.createElement("div");
+          info.className = "file-info";
+          const name = document.createElement("div");
+          name.className = "file-name";
+          name.title = file.name;
+          name.textContent = file.name;
+          const meta = document.createElement("div");
+          meta.className = "file-meta";
+          meta.textContent = `更新时间 ${formatDate(file.updatedAt)} · ${formatSize(file.size)}`;
+          info.append(name, meta);
+
+          const actions = document.createElement("div");
+          actions.className = "file-actions";
+          const type = document.createElement("span");
+          type.className = "type-chip";
+          type.textContent = fileType(file.name);
+          const sync = document.createElement("span");
+          sync.className = "sync-chip";
+          sync.textContent = "已同步";
+          const download = document.createElement("button");
+          download.className = "action-button";
+          download.type = "button";
+          download.textContent = "下载";
+          download.addEventListener("click", () => downloadFile(file.path, file.name, download));
+          const remove = document.createElement("button");
+          remove.className = "action-button delete";
+          remove.type = "button";
+          remove.textContent = "删除";
+          remove.addEventListener("click", () => deleteFile(file.path, file.name));
+          actions.append(type, sync, download, remove);
+          li.append(info, actions);
+          filesEl.appendChild(li);
+        });
+        listStatus.textContent = query ? `搜索到 ${visibleFiles.length} 个文件` : `共 ${visibleFiles.length} 个文件`;
       }
 
       async function requireUser() {
+        if (!client) {
+          loginError.textContent = "Supabase 配置未加载，请检查 config.js。";
+          return false;
+        }
         const { data, error } = await client.auth.getUser();
         if (error || !data.user) {
           currentUser = null;
@@ -201,7 +531,8 @@
           return false;
         }
         currentUser = data.user;
-        account.textContent = `${data.user.email} · Supabase Storage`;
+        account.textContent = data.user.email || "已登录";
+        avatar.textContent = initials(data.user.email);
         showApp();
         return true;
       }
@@ -210,55 +541,38 @@
         if (!currentUser) return;
         listStatus.textContent = "加载中…";
         filesEl.innerHTML = "";
-        const { data, error } = await client.storage.from(BUCKET).list(storagePrefix(), {
-          limit: 100,
-          sortBy: { column: "updated_at", order: "desc" },
-        });
+        const { data, error } = await client.storage.from(BUCKET).list(storagePrefix(), { limit: 100, sortBy: { column: "updated_at", order: "desc" } });
         if (error) {
+          loadedFiles = [];
           listStatus.textContent = error.message;
+          renderFiles();
+          updateCategoryLabel();
           return;
         }
-        const files = (data || []).filter((item) => item.name && item.metadata);
-        if (!files.length) {
-          filesEl.innerHTML = '<li class="empty">这个分类还没有资料。</li>';
-          listStatus.textContent = "共 0 个文件";
-          return;
-        }
-        files.forEach((item) => {
-          const fullPath = filePath(item.name);
-          const li = document.createElement("li");
-          li.className = "file-item";
+        loadedFiles = (data || [])
+          .filter((item) => item.name && item.metadata)
+          .map((item) => ({ name: item.name, size: Number(item.metadata?.size), updatedAt: item.updated_at, path: filePath(item.name) }));
+        updateCategoryLabel();
+        renderFiles();
+      }
 
-          const info = document.createElement("div");
-          info.className = "file-name";
-          const name = document.createElement("div");
-          name.textContent = item.name;
-          const meta = document.createElement("div");
-          meta.className = "file-meta";
-          const size = item.metadata?.size ? formatSize(item.metadata.size) : "未知大小";
-          meta.textContent = `${size} · ${item.updated_at ? new Date(item.updated_at).toLocaleString() : ""}`;
-          info.append(name, meta);
+      async function loadStats() {
+        if (!currentUser) return;
+        const results = await Promise.all(CATEGORIES.map((category) => client.storage.from(BUCKET).list(storagePrefix(category), { limit: 100, sortBy: { column: "updated_at", order: "desc" } })));
+        const allFiles = results.flatMap((result) => (result.error ? [] : (result.data || []).filter((item) => item.name && item.metadata)));
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        totalCount.textContent = String(allFiles.length);
+        weekCount.textContent = String(allFiles.filter((item) => item.updated_at && new Date(item.updated_at).getTime() >= weekAgo).length);
+      }
 
-          const actions = document.createElement("div");
-          actions.className = "row";
-          const download = document.createElement("button");
-          download.textContent = "下载";
-          download.addEventListener("click", () => downloadFile(fullPath, item.name, download));
-          const remove = document.createElement("button");
-          remove.textContent = "删除";
-          remove.className = "danger";
-          remove.addEventListener("click", () => deleteFile(fullPath, item.name));
-          actions.append(download, remove);
-          li.append(info, actions);
-          filesEl.appendChild(li);
-        });
-        listStatus.textContent = `共 ${files.length} 个文件`;
+      async function refreshData() {
+        await Promise.all([loadFiles(), loadStats()]);
       }
 
       async function downloadFile(path, name, button) {
-        button.disabled = true;
+        setButtonBusy(button, true, "准备中…");
         const { data, error } = await client.storage.from(BUCKET).download(path);
-        button.disabled = false;
+        setButtonBusy(button, false);
         if (error) {
           listStatus.textContent = error.message;
           return;
@@ -266,35 +580,45 @@
         const link = document.createElement("a");
         link.href = URL.createObjectURL(data);
         link.download = name;
+        document.body.appendChild(link);
         link.click();
-        URL.revokeObjectURL(link.href);
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       }
 
       async function deleteFile(path, name) {
-        if (!confirm(`确定删除“${name}”吗？`)) return;
+        if (!window.confirm(`确定删除“${name}”吗？`)) return;
         const { error } = await client.storage.from(BUCKET).remove([path]);
         if (error) {
           listStatus.textContent = error.message;
           return;
         }
-        await loadFiles();
+        await refreshData();
       }
 
-      document.getElementById("loginForm").addEventListener("submit", async (event) => {
+      loginForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         loginError.textContent = "";
-        const email = document.getElementById("email").value.trim();
-        const password = document.getElementById("password").value;
+        if (!client) return;
+        setButtonBusy(loginButton, true, "登录中…");
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
         const { error } = await client.auth.signInWithPassword({ email, password });
+        setButtonBusy(loginButton, false);
         if (error) {
           loginError.textContent = error.message;
           return;
         }
-        document.getElementById("password").value = "";
-        localStorage.setItem("beiger_remember_login", rememberMe.checked ? "1" : "0");
-        if (rememberMe.checked) localStorage.setItem("beiger_saved_email", email);
+        passwordInput.value = "";
+        rememberLogin = rememberMe.checked;
+        localStorage.setItem("beiger_remember_login", rememberLogin ? "1" : "0");
+        if (rememberLogin) localStorage.setItem("beiger_saved_email", email);
         else localStorage.removeItem("beiger_saved_email");
-        if (await requireUser()) await loadFiles();
+        if (await requireUser()) await refreshData();
+      });
+
+      fileInput.addEventListener("change", () => {
+        selectedFileName.textContent = fileInput.files[0]?.name || "选择文件";
       });
 
       document.getElementById("upload").addEventListener("click", async () => {
@@ -304,36 +628,51 @@
           return;
         }
         uploadStatus.textContent = "上传中…";
-        const { error } = await client.storage.from(BUCKET).upload(filePath(file.name), file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        const uploadButton = document.getElementById("upload");
+        setButtonBusy(uploadButton, true, "上传中…");
+        const { error } = await client.storage.from(BUCKET).upload(filePath(file.name), file, { cacheControl: "3600", upsert: false });
+        setButtonBusy(uploadButton, false);
         if (error) {
           uploadStatus.textContent = error.message;
           return;
         }
         fileInput.value = "";
+        selectedFileName.textContent = "选择文件";
         uploadStatus.textContent = "上传完成。";
-        await loadFiles();
+        await refreshData();
       });
 
-      category.addEventListener("change", loadFiles);
-      document.getElementById("refresh").addEventListener("click", loadFiles);
+      searchInput.addEventListener("input", renderFiles);
+      clearSearch.addEventListener("click", () => {
+        searchInput.value = "";
+        renderFiles();
+        searchInput.focus();
+      });
+      document.getElementById("refresh").addEventListener("click", refreshData);
       document.getElementById("logout").addEventListener("click", async () => {
-        await client.auth.signOut();
+        if (client) await client.auth.signOut();
         currentUser = null;
+        loadedFiles = [];
         showLogin();
       });
+
+      if (client) {
+        client.auth.onAuthStateChange((event) => {
+          if (event === "SIGNED_OUT") {
+            currentUser = null;
+            showLogin();
+          }
+        });
+      }
 
       renderCategories();
       updateCategoryLabel();
       const savedEmail = localStorage.getItem("beiger_saved_email");
-      if (savedEmail) document.getElementById("email").value = savedEmail;
+      if (savedEmail) emailInput.value = savedEmail;
       rememberMe.checked = rememberLogin;
       requireUser().then((ok) => {
-        if (ok) loadFiles();
+        if (ok) refreshData();
       });
     </script>
   </body>
 </html>
-
