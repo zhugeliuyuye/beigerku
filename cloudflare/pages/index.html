@@ -223,6 +223,14 @@
       .reader-status { min-height: 20px; padding: 0 20px 12px; color: var(--muted); font-size: 12px; line-height: 1.5; }
       .reader-content { min-height: 0; overflow: auto; border-top: 1px solid var(--border-soft); background: #eef2f6; }
       .reader-frame { display: block; width: 100%; height: 100%; min-height: 440px; border: 0; background: #fff; }
+      .reader-pdf { display: flex; flex-direction: column; min-height: 100%; background: #eef2f6; }
+      .pdf-toolbar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 10px 18px; border-bottom: 1px solid var(--border-soft); background: rgba(255, 255, 255, 0.96); }
+      .pdf-page-button { display: grid; width: 34px; height: 34px; padding: 0; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: #fff; color: var(--text); font-size: 18px; line-height: 1; }
+      .pdf-page-button:hover:not(:disabled) { border-color: #b8c7c0; background: #f5f8f6; }
+      .pdf-page-button:disabled { cursor: not-allowed; opacity: 0.4; }
+      .pdf-page-count { min-width: 88px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; }
+      .pdf-canvas-wrap { display: grid; flex: 1; min-height: 0; padding: 20px; place-items: start center; }
+      .pdf-canvas { display: block; max-width: 100%; height: auto; background: #fff; box-shadow: 0 5px 20px rgba(20, 38, 64, 0.16); }
       .reader-image-wrap { display: grid; min-height: 100%; padding: 24px; place-items: center; }
       .reader-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
       .reader-text { min-height: 100%; margin: 0; padding: 22px; overflow: auto; background: #fff; color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.7; tab-size: 2; white-space: pre-wrap; word-break: break-word; }
@@ -268,6 +276,8 @@
         .reader-actions { gap: 6px; }
         .reader-status { padding: 0 16px 10px; }
         .reader-frame { min-height: 360px; }
+        .pdf-toolbar { min-height: 48px; padding: 8px 14px; }
+        .pdf-canvas-wrap { padding: 14px; }
         .reader-image-wrap, .reader-media-wrap { padding: 16px; }
         .reader-text { padding: 16px; font-size: 12px; }
       }
@@ -465,6 +475,8 @@
       let readerBlob = null;
       let readerObjectUrl = "";
       let readerRequestId = 0;
+      let pdfjsPromise = null;
+      let activePdfLoadingTask = null;
       let activeCategory = localStorage.getItem("beiger_active_category") || CATEGORIES[0];
       let rememberLogin = localStorage.getItem("beiger_remember_login") === "1";
       const MAX_TEXT_PREVIEW_BYTES = 2 * 1024 * 1024;
@@ -599,8 +611,34 @@
         readerContent.appendChild(message);
       }
 
+      function isReaderRequestActive(requestId) {
+        return requestId === readerRequestId && readerDialog.open;
+      }
+
+      async function loadPdfJs() {
+        if (!pdfjsPromise) {
+          pdfjsPromise = import("./vendor/pdf.min.mjs")
+            .then((pdfjsLib) => {
+              pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./vendor/pdf.worker.min.mjs", window.location.href).href;
+              return pdfjsLib;
+            })
+            .catch((error) => {
+              pdfjsPromise = null;
+              throw error;
+            });
+        }
+        return pdfjsPromise;
+      }
+
+      function clearActivePdf() {
+        const loadingTask = activePdfLoadingTask;
+        activePdfLoadingTask = null;
+        if (loadingTask?.destroy) Promise.resolve(loadingTask.destroy()).catch(() => {});
+      }
+
       function clearReader() {
         readerRequestId += 1;
+        clearActivePdf();
         readerFile = null;
         readerBlob = null;
         readerStatus.textContent = "";
@@ -645,6 +683,98 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
+      function createPdfPageButton(label, glyph) {
+        const button = document.createElement("button");
+        button.className = "pdf-page-button";
+        button.type = "button";
+        button.setAttribute("aria-label", label);
+        button.title = label;
+        button.textContent = glyph;
+        return button;
+      }
+
+      async function renderPdfReader(blob, requestId) {
+        readerContent.className = "reader-content reader-pdf";
+        readerContent.replaceChildren();
+        readerStatus.textContent = "正在准备 PDF 阅读器…";
+
+        const pdfjsLib = await loadPdfJs();
+        if (!isReaderRequestActive(requestId)) return;
+
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        if (!isReaderRequestActive(requestId)) return;
+
+        const loadingTask = pdfjsLib.getDocument({ data: bytes, enableXfa: false, isEvalSupported: false });
+        activePdfLoadingTask = loadingTask;
+        const pdf = await loadingTask.promise;
+        if (!isReaderRequestActive(requestId)) {
+          await Promise.resolve(loadingTask.destroy()).catch(() => {});
+          return;
+        }
+
+        const toolbar = document.createElement("div");
+        toolbar.className = "pdf-toolbar";
+        const previousButton = createPdfPageButton("上一页", "←");
+        const pageCount = document.createElement("span");
+        pageCount.className = "pdf-page-count";
+        const nextButton = createPdfPageButton("下一页", "→");
+        const canvasWrap = document.createElement("div");
+        canvasWrap.className = "pdf-canvas-wrap";
+        toolbar.append(previousButton, pageCount, nextButton);
+        readerContent.append(toolbar, canvasWrap);
+
+        let pageNumber = 1;
+        let renderRevision = 0;
+
+        async function showPage(targetPage) {
+          const currentRender = ++renderRevision;
+          previousButton.disabled = true;
+          nextButton.disabled = true;
+          readerStatus.textContent = `正在渲染第 ${targetPage} 页…`;
+
+          try {
+            const page = await pdf.getPage(targetPage);
+            if (!isReaderRequestActive(requestId) || currentRender !== renderRevision) return;
+
+            const baseViewport = page.getViewport({ scale: 1 });
+            const availableWidth = Math.max(280, Math.min(920, readerContent.clientWidth - 40));
+            const displayScale = Math.max(0.5, Math.min(2, availableWidth / baseViewport.width));
+            const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+            const renderViewport = page.getViewport({ scale: displayScale * outputScale });
+            const canvas = document.createElement("canvas");
+            canvas.className = "pdf-canvas";
+            canvas.width = Math.ceil(renderViewport.width);
+            canvas.height = Math.ceil(renderViewport.height);
+            canvas.style.width = `${Math.ceil(renderViewport.width / outputScale)}px`;
+            canvas.style.height = `${Math.ceil(renderViewport.height / outputScale)}px`;
+            const context = canvas.getContext("2d", { alpha: false });
+            if (!context) throw new Error("浏览器无法创建 PDF 画布。");
+
+            await page.render({ canvasContext: context, viewport: renderViewport, background: "#ffffff" }).promise;
+            if (!isReaderRequestActive(requestId) || currentRender !== renderRevision) return;
+
+            pageNumber = targetPage;
+            canvasWrap.replaceChildren(canvas);
+            pageCount.textContent = `${pageNumber} / ${pdf.numPages}`;
+            previousButton.disabled = pageNumber <= 1;
+            nextButton.disabled = pageNumber >= pdf.numPages;
+            readerStatus.textContent = `第 ${pageNumber} 页，共 ${pdf.numPages} 页`;
+          } catch (error) {
+            if (!isReaderRequestActive(requestId) || currentRender !== renderRevision) return;
+            readerStatus.textContent = "";
+            showReaderMessage("无法渲染这份 PDF", error.message || "文件可能已损坏，请下载后用本机软件打开。");
+          }
+        }
+
+        previousButton.addEventListener("click", () => {
+          if (pageNumber > 1) showPage(pageNumber - 1);
+        });
+        nextButton.addEventListener("click", () => {
+          if (pageNumber < pdf.numPages) showPage(pageNumber + 1);
+        });
+        await showPage(1);
+      }
+
       async function renderReaderContent(kind, blob, fileName, requestId) {
         readerContent.className = "reader-content";
         readerContent.replaceChildren();
@@ -663,16 +793,12 @@
           return;
         }
 
-        readerObjectUrl = URL.createObjectURL(blob);
         if (kind === "pdf") {
-          const frame = document.createElement("iframe");
-          frame.className = "reader-frame";
-          frame.src = readerObjectUrl;
-          frame.title = `${fileName} 阅读器`;
-          readerContent.appendChild(frame);
+          await renderPdfReader(blob, requestId);
           return;
         }
 
+        readerObjectUrl = URL.createObjectURL(blob);
         if (kind === "image") {
           readerContent.classList.add("reader-image-wrap");
           const image = document.createElement("img");
@@ -721,7 +847,15 @@
           return;
         }
         readerBlob = data;
-        await renderReaderContent(kind, data, file.name, requestId);
+        try {
+          await renderReaderContent(kind, data, file.name, requestId);
+        } catch (renderError) {
+          if (isReaderRequestActive(requestId)) {
+            readerStatus.textContent = "";
+            showReaderMessage("无法打开资料", renderError.message || "文件可能已损坏，请下载后用本机软件打开。");
+          }
+          return;
+        }
         if (requestId === readerRequestId && readerDialog.open) readerStatus.textContent = "";
       }
 
