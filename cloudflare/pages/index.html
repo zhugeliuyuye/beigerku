@@ -339,6 +339,15 @@
 
     <script>
       const CATEGORIES = ["半导体工艺", "半导体器件", "数电", "模电", "数集", "模集"];
+      // Hosted Supabase Storage currently rejects Unicode object keys, so keep cloud paths ASCII-only.
+      const CATEGORY_STORAGE_KEYS = {
+        "半导体工艺": "semiconductor-process",
+        "半导体器件": "semiconductor-devices",
+        "数电": "digital-electronics",
+        "模电": "analog-electronics",
+        "数集": "digital-ic",
+        "模集": "analog-ic"
+      };
       const BUCKET = window.LIBRARY_BUCKET || "library";
       const hasSupabaseConfig = Boolean(window.SUPABASE_URL && window.SUPABASE_PUBLISHABLE_KEY && window.supabase);
       const client = hasSupabaseConfig
@@ -398,12 +407,49 @@
         }
       }
 
+      function categoryStorageKey(category) {
+        return CATEGORY_STORAGE_KEYS[category] || "uncategorized";
+      }
+
+      function toBase64Url(value) {
+        const bytes = new TextEncoder().encode(value);
+        let binary = "";
+        bytes.forEach((byte) => {
+          binary += String.fromCharCode(byte);
+        });
+        return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+      }
+
+      function fromBase64Url(value) {
+        const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+        const binary = atob(padded);
+        return new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
+      }
+
+      function storageFileName(fileName) {
+        return `f_${toBase64Url(fileName)}`;
+      }
+
+      function displayFileName(storageName) {
+        if (!storageName.startsWith("f_")) return storageName;
+        try {
+          return fromBase64Url(storageName.slice(2));
+        } catch {
+          return storageName;
+        }
+      }
+
       function storagePrefix(category = activeCategory) {
-        return `${currentUser.id}/${category}/`;
+        return `${currentUser.id}/${categoryStorageKey(category)}/`;
+      }
+
+      function storagePath(storageName, category = activeCategory) {
+        return `${storagePrefix(category)}${storageName}`;
       }
 
       function filePath(fileName, category = activeCategory) {
-        return `${storagePrefix(category)}${fileName}`;
+        return storagePath(storageFileName(fileName), category);
       }
 
       function formatSize(bytes) {
@@ -564,7 +610,12 @@
         }
         loadedFiles = (data || [])
           .filter((item) => item.name && item.metadata)
-          .map((item) => ({ name: item.name, size: Number(item.metadata?.size), updatedAt: item.updated_at, path: filePath(item.name) }));
+          .map((item) => ({
+            name: displayFileName(item.name),
+            size: Number(item.metadata?.size),
+            updatedAt: item.updated_at,
+            path: storagePath(item.name)
+          }));
         updateCategoryLabel();
         renderFiles();
       }
@@ -643,7 +694,11 @@
         uploadStatus.textContent = "上传中…";
         const uploadButton = document.getElementById("upload");
         setButtonBusy(uploadButton, true, "上传中…");
-        const { error } = await client.storage.from(BUCKET).upload(filePath(file.name), file, { cacheControl: "3600", upsert: false });
+        const { error } = await client.storage.from(BUCKET).upload(filePath(file.name), file, {
+          cacheControl: "3600",
+          contentType: file.type || undefined,
+          upsert: false
+        });
         setButtonBusy(uploadButton, false);
         if (error) {
           uploadStatus.textContent = error.message;
